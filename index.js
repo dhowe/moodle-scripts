@@ -1,9 +1,16 @@
-const fs = require('fs');
-const path = require('path');
+const path = require("path");
+const fs = require("fs");
+const files = [];
+const result = {};
 
-// Replace 'directory' with your target directory
-const directoryPath = path.join(__dirname, './cc2-subs');
-const table = {};
+function readDir(dir) {
+  fs.readdirSync(dir).forEach(file => {
+    const absolute = path.join(dir, file);
+    return (fs.statSync(absolute).isDirectory())
+      ? readDir(absolute) :
+      files.push(absolute);
+  });
+}
 
 function extractLinkFromFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
@@ -11,36 +18,17 @@ function extractLinkFromFile(filePath) {
   return linkMatch ? linkMatch[0] : null;
 }
 
-async function readFilesRecursively(dir) {
+readDir("./cc2-subs");
+files.forEach(file => {
+  const link = extractLinkFromFile(file);
+  if (link) {
+    let folderName = path.basename(path.dirname(file));
+    folderName = folderName.replace(/_[0-9]+_assignsubmission_onlinetext/g, '');
+    //console.log(`${folderName},${link}`);
+    result[folderName] = link;
+  }
+});
 
-  fs.readdir(dir, (err, files) => {
-    if (err) {
-      console.error(`Error reading directory ${dir}: `, err);
-      return;
-    }
-
-    files.forEach(file => {
-      const filePath = path.join(dir, file);
-      fs.stat(filePath, (err, stat) => {
-        if (err) {
-          console.error(`Error stating file ${filePath}: `, err);
-          return;
-        }
-
-        if (stat.isDirectory()) {
-          readFilesRecursively(filePath);
-        } 
-        else if (stat.isFile() && path.basename(filePath) === 'onlinetext.html') {
-          const link = extractLinkFromFile(filePath);
-          if (link) {
-            let folderName = path.basename(path.dirname(filePath));
-            folderName = folderName.replace(/_[0-9]+_assignsubmission_onlinetext/g, '');
-            console.log(`${folderName},${link}`);
-          }
-        }
-      });
-    });
-  });
-}
-
-readFilesRecursively(directoryPath);
+// output csv format
+Object.keys(result).sort()
+  .forEach(key => console.log(`${key},${result[key]}`));
